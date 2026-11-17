@@ -1,0 +1,43 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Run Python Tests') {
+            steps {
+                sh 'python3 -m unittest discover -v'
+            }
+        }
+    }
+
+    post {
+        success {
+            withCredentials([
+                string(credentialsId: 'webex-token', variable: 'WEBEX_TOKEN'),
+                string(credentialsId: 'webex-room', variable: 'WEBEX_ROOM')
+            ]) {
+                sh '''
+                    curl --fail --silent --show-error \
+                    -X POST https://webexapis.com/v1/messages \
+                    -H "Authorization: Bearer $WEBEX_TOKEN" \
+                    --data-urlencode "roomId=$WEBEX_ROOM" \
+                    --data-urlencode "markdown=SUCCESS: Jenkins build #$BUILD_NUMBER passed all Python tests."
+                '''
+            }
+        }
+
+        failure {
+            withCredentials([
+                string(credentialsId: 'webex-token', variable: 'WEBEX_TOKEN'),
+                string(credentialsId: 'webex-room', variable: 'WEBEX_ROOM')
+            ]) {
+                sh '''
+                    curl --fail --silent --show-error \
+                    -X POST https://webexapis.com/v1/messages \
+                    -H "Authorization: Bearer $WEBEX_TOKEN" \
+                    --data-urlencode "roomId=$WEBEX_ROOM" \
+                    --data-urlencode "markdown=FAILED: Jenkins build #$BUILD_NUMBER encountered an error."
+                '''
+            }
+        }
+    }
+}
